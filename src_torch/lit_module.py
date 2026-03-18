@@ -10,9 +10,9 @@ class CDELitModule(LightningModule):
         super().__init__()
         self.cfg = cfg
         
-        if cfg.model == "matcde":
-            from src_torch.models_baseline import MatCDE 
-            vf = MatCDE(cfg.input_dim, cfg.hidden_dim)
+        if cfg.model == "torch_baseline":
+            from src_torch.models_baseline import BaselineCDE 
+            vf = BaselineCDE(cfg.input_dim, cfg.hidden_dim, cfg.cell)
         elif cfg.model == "torch_manual":
             from src_torch.models_manual import JaCDEManual
             vf = JaCDEManual(cfg.input_dim, cfg.hidden_dim, cfg.cell, cfg.k_terms)
@@ -47,7 +47,6 @@ class CDELitModule(LightningModule):
         x, y = batch
         preds = self.forward(x)
         loss = self.loss(preds, y)
-        # on_epoch=True усреднит лосс за всю эпоху
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
@@ -60,7 +59,7 @@ class CDELitModule(LightningModule):
     def test_step(self, batch, batch_idx):
         preds = self.forward(batch[0])
         self.test_acc(preds.argmax(dim=-1), batch[1])
-        self.log("test_acc", self.test_acc)
+        self.log("test_acc", self.test_acc, on_step=False, on_epoch=True)
 
     def configure_optimizers(self): 
         return torch.optim.Adam(self.parameters(), lr=1e-3)

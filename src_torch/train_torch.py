@@ -6,17 +6,23 @@ import matplotlib.pyplot as plt
 from src_torch.data import DataModule
 from src_torch.lit_module import CDELitModule
 
-# Fix for Tensor Cores performance warning on modern GPUs (e.g. L40S, A100, RTX 30/40 series)
+# Fix for Tensor Cores performance warning
 torch.set_float32_matmul_precision('medium')
 
 class MetricsHistoryCallback(Callback):
-    def __init__(self):
+    def __init__(self, log_path):
         super().__init__()
         self.train_losses = []
         self.val_accs = []
         self.total_time = 0.0
         self.epoch_start_time = 0.0
+        self.log_path = log_path
         
+    def log_print(self, msg):
+        print(msg)
+        with open(self.log_path, "a") as f:
+            f.write(msg + "\n")
+
     def on_train_epoch_start(self, trainer, pl_module):
         self.epoch_start_time = time.time()
         
@@ -26,6 +32,10 @@ class MetricsHistoryCallback(Callback):
             self.train_losses.append(loss.item())
         self.total_time += time.time() - self.epoch_start_time
         
+        if (trainer.current_epoch + 1) % 5 == 0 or trainer.current_epoch == 0:
+            acc = trainer.callback_metrics.get("val_acc", 0.0)
+            self.log_print(f"Epoch {trainer.current_epoch+1}/{trainer.max_epochs} | Loss: {loss:.4f} | Val Acc: {acc:.4f}")
+
     def on_validation_epoch_end(self, trainer, pl_module):
         if trainer.sanity_checking: return 
         acc = trainer.callback_metrics.get("val_acc")
@@ -51,10 +61,13 @@ def main(cfg: DictConfig):
     pl.seed_everything(cfg.seed)
     
     os.makedirs("outputs", exist_ok=True)
-    out_file = f"outputs/res_torch_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}.json"
+    
+    file_prefix = f"torch_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}"
+    out_file = f"outputs/res_{file_prefix}.json"
+    log_path = f"outputs/log_{file_prefix}.txt"
     
     if os.path.exists(out_file):
-        print(f"[PyTorch] Experiment {cfg.model} | {cfg.cell} | k={cfg.k_terms} already completed. Skipping.")
+        print(f"[PyTorch] Experiment {file_prefix} already completed. Skipping.")
         return
 
     dm = DataModule(cfg.dataset, cfg.batch_size)
@@ -64,9 +77,13 @@ def main(cfg: DictConfig):
     model = CDELitModule(cfg)
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    ckpt_dir = f"checkpoints/torch_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}"
+    ckpt_dir = f"checkpoints/{file_prefix}"
     os.makedirs(ckpt_dir, exist_ok=True)
     ckpt_path = os.path.join(ckpt_dir, "last.ckpt")
+
+    history = MetricsHistoryCallback(log_path)
+    history.log_print(f"=== Starting Torch Training: {file_prefix} ===")
+    history.log_print(f"Model parameters: {params:,}")
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         dirpath=ckpt_dir,
@@ -74,7 +91,6 @@ def main(cfg: DictConfig):
         save_top_k=0,  
     )
 
-    history = MetricsHistoryCallback()
     trainer = Trainer(
         max_epochs=cfg.epochs, 
         accelerator="gpu", 
@@ -85,13 +101,15 @@ def main(cfg: DictConfig):
     )
     
     if os.path.exists(ckpt_path):
-        print(f"[PyTorch] Resuming from checkpoint: {ckpt_path}")
+        history.log_print(f"Resuming from checkpoint: {ckpt_path}")
         trainer.fit(model, datamodule=dm, ckpt_path=ckpt_path)
     else:
-        print(f"[PyTorch] Starting new training for {cfg.model} | {cfg.cell} | k={cfg.k_terms}")
+        history.log_print(f"Starting new training...")
         trainer.fit(model, datamodule=dm)
 
-    test_acc = trainer.test(model, datamodule=dm)[0]["test_acc"]
+    history.log_print("Evaluating on test set...")
+    test_acc = trainer.test(model, datamodule=dm, ckpt_path=ckpt_path)[0]["test_acc"]
+    history.log_print(f"Test Accuracy: {test_acc:.4f}")
 
     res = {
         "framework": "torch", 
@@ -106,7 +124,7 @@ def main(cfg: DictConfig):
     
     with open(out_file, "w") as f: 
         json.dump(res, f)
-    print(f"[PyTorch] Results saved to {out_file}")
+    history.log_print(f"Results saved to {out_file}")
 
     # === PLOTTING ===
     fig, ax1 = plt.subplots(figsize=(8, 5))
@@ -124,7 +142,7 @@ def main(cfg: DictConfig):
 
     plt.title(f"PyTorch: {cfg.model} | {cfg.cell} | k={cfg.k_terms}")
     fig.tight_layout()
-    plt.savefig(f"outputs/curves_torch_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}.png", dpi=150)
+    plt.savefig(f"outputs/curves_{file_prefix}.png", dpi=150)
     plt.close()
 
 if __name__ == "__main__": 

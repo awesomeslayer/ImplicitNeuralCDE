@@ -35,7 +35,7 @@ class JaCDEManual(nn.Module):
 
         # Compute jacobians
         dtanh = 1 - tanh**2
-        drelu = l1.sigmoid() 
+        drelu = l1.sigmoid() # surrogate gradient
         d_outer = dtanh[:, :, None] * self.wout * drelu[:, None, :]
         
         Jx = d_outer @ self.wx

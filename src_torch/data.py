@@ -24,6 +24,6 @@ class DataModule(LightningDataModule):
         self.val_ds = TensorDataset(torch.from_numpy(Xval), torch.from_numpy(Yval))
         self.test_ds = TensorDataset(torch.from_numpy(Xtest), torch.from_numpy(Ytest))
 
-    def train_dataloader(self): return DataLoader(self.train_ds, batch_size=self.batch_size, num_workers=4, shuffle=True)
-    def val_dataloader(self): return DataLoader(self.val_ds, batch_size=self.batch_size, num_workers=4, shuffle=False)
-    def test_dataloader(self): return DataLoader(self.test_ds, batch_size=self.batch_size, num_workers=4, shuffle=False)
+    def train_dataloader(self): return DataLoader(self.train_ds, batch_size=self.batch_size, num_workers=0, shuffle=True)
+    def val_dataloader(self): return DataLoader(self.val_ds, batch_size=self.batch_size, num_workers=0, shuffle=False)
+    def test_dataloader(self): return DataLoader(self.test_ds, batch_size=self.batch_size, num_workers=0, shuffle=False)

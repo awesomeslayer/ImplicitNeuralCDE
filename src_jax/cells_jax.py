@@ -1,4 +1,5 @@
 # FILE: src_jax/cells_jax.py
+import jax 
 import jax.numpy as jnp
 import jax.nn as jnn
 import equinox as eqx
