@@ -39,8 +39,7 @@ venv/
 # -------------------------
 logs/
 *.log
-outputs/
-benchmark_results.csv
+outputs/*
 
 # -------------------------
 # TensorBoard logs
@@ -56,7 +55,6 @@ data/
 *.pkl
 *.npz
 *.npy
-*.csv
 *.tsv
 
 # -------------------------
@@ -74,3 +72,5 @@ old_plots/
 old/
 Ilya/
 checkpoints/
+
+!outputs/*.png
