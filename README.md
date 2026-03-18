@@ -30,7 +30,7 @@ To train the implicit Jacobian CDE, the autograd engine must compute the **secon
 
 ---
 
-## Benchmark Results (CharacterTrajectories)
+## Benchmark Results (RNN, CharacterTrajectories)
 
 As shown below, our Jacobian NCDE with `surrogate_relu` matches the Matrix NCDE Baseline while using **~50% fewer parameters**. The **Time** column represents the relative training duration compared to the baseline model (1.00x) for each respective framework.
 
@@ -73,7 +73,7 @@ As shown below, our Jacobian NCDE with `surrogate_relu` matches the Matrix NCDE 
 
 Below is a comparison of training curves for the **PyTorch Manual** model. Notice how the **Surrogate ReLU** maintains stable and high validation accuracy, whereas the standard **ReLU** suffers from gradient vanishing.
 
-### Surrogate ReLU vs Standard ReLU (PyTorch Manual)
+### Surrogate ReLU vs Standard ReLU (RNN, PyTorch Manual)
 
 | Activation | $K=1$ | $K=2$ | $K=3$ |
 |:---:|:---:|:---:|:---:|
