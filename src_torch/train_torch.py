@@ -11,24 +11,52 @@ torch.set_float32_matmul_precision('medium')
 
 class MetricsHistoryCallback(Callback):
     def __init__(self):
+        super().__init__()
         self.train_losses = []
         self.val_accs = []
+        self.total_time = 0.0
+        self.epoch_start_time = 0.0
+        
+    def on_train_epoch_start(self, trainer, pl_module):
+        self.epoch_start_time = time.time()
         
     def on_train_epoch_end(self, trainer, pl_module):
         loss = trainer.callback_metrics.get("train_loss")
-        if loss is not None: self.train_losses.append(loss.item())
+        if loss is not None: 
+            self.train_losses.append(loss.item())
+        self.total_time += time.time() - self.epoch_start_time
         
     def on_validation_epoch_end(self, trainer, pl_module):
         if trainer.sanity_checking: return 
         acc = trainer.callback_metrics.get("val_acc")
-        if acc is not None: self.val_accs.append(acc.item())
+        if acc is not None: 
+            self.val_accs.append(acc.item())
+
+    def state_dict(self):
+        return {
+            "train_losses": self.train_losses,
+            "val_accs": self.val_accs,
+            "total_time": self.total_time
+        }
+
+    def load_state_dict(self, state_dict):
+        self.train_losses = state_dict.get("train_losses", [])
+        self.val_accs = state_dict.get("val_accs", [])
+        self.total_time = state_dict.get("total_time", 0.0)
+
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
 def main(cfg: DictConfig):
     OmegaConf.set_struct(cfg, False)
-    
     pl.seed_everything(cfg.seed)
     
+    os.makedirs("outputs", exist_ok=True)
+    out_file = f"outputs/res_torch_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}.json"
+    
+    if os.path.exists(out_file):
+        print(f"[PyTorch] Experiment {cfg.model} | {cfg.cell} | k={cfg.k_terms} already completed. Skipping.")
+        return
+
     dm = DataModule(cfg.dataset, cfg.batch_size)
     cfg.input_dim = dm.inp_dim
     cfg.output_dim = dm.out_dim
@@ -36,26 +64,49 @@ def main(cfg: DictConfig):
     model = CDELitModule(cfg)
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+    ckpt_dir = f"checkpoints/torch_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}"
+    os.makedirs(ckpt_dir, exist_ok=True)
+    ckpt_path = os.path.join(ckpt_dir, "last.ckpt")
+
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(
+        dirpath=ckpt_dir,
+        save_last=True,
+        save_top_k=0,  
+    )
+
     history = MetricsHistoryCallback()
-    trainer = Trainer(max_epochs=cfg.epochs, accelerator="gpu", devices=1, 
-                      enable_checkpointing=False, logger=False, callbacks=[history])
+    trainer = Trainer(
+        max_epochs=cfg.epochs, 
+        accelerator="gpu", 
+        devices=1, 
+        enable_checkpointing=True, 
+        logger=False, 
+        callbacks=[history, checkpoint_callback]
+    )
     
-    t0 = time.time()
-    trainer.fit(model, datamodule=dm)
-    t_train = time.time() - t0
+    if os.path.exists(ckpt_path):
+        print(f"[PyTorch] Resuming from checkpoint: {ckpt_path}")
+        trainer.fit(model, datamodule=dm, ckpt_path=ckpt_path)
+    else:
+        print(f"[PyTorch] Starting new training for {cfg.model} | {cfg.cell} | k={cfg.k_terms}")
+        trainer.fit(model, datamodule=dm)
 
     test_acc = trainer.test(model, datamodule=dm)[0]["test_acc"]
 
     res = {
-        "framework": "torch", "model": cfg.model, "cell": cfg.cell, 
-        "k_terms": cfg.k_terms, "seed": cfg.seed, "params": params, 
-        "time_s": t_train, "acc": test_acc
+        "framework": "torch", 
+        "model": cfg.model, 
+        "cell": cfg.cell, 
+        "k_terms": cfg.k_terms, 
+        "seed": cfg.seed, 
+        "params": params, 
+        "time_s": history.total_time,  
+        "acc": test_acc
     }
     
-    os.makedirs("outputs", exist_ok=True)
-    out_file = f"outputs/res_torch_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}.json"
     with open(out_file, "w") as f: 
         json.dump(res, f)
+    print(f"[PyTorch] Results saved to {out_file}")
 
     # === PLOTTING ===
     fig, ax1 = plt.subplots(figsize=(8, 5))

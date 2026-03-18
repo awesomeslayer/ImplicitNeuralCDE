@@ -1,6 +1,7 @@
 import jax, diffrax, optax, json, os, time, hydra
 import jax.numpy as jnp
 import equinox as eqx
+import matplotlib.subplots as plt_subplots
 import matplotlib.pyplot as plt
 from omegaconf import DictConfig, OmegaConf
 from src_torch.data import DataModule 
@@ -41,8 +42,15 @@ class ClassifierJax(eqx.Module):
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
 def main(cfg: DictConfig):
-    # Отключаем строгий режим Hydra
     OmegaConf.set_struct(cfg, False)
+
+    os.makedirs("outputs", exist_ok=True)
+    out_file = f"outputs/res_jax_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}.json"
+
+    # 1. Если результаты уже существуют, пропускаем обучение
+    if os.path.exists(out_file):
+        print(f"[JAX] Experiment {cfg.model} | {cfg.cell} | k={cfg.k_terms} already completed. Skipping.")
+        return
 
     dm = DataModule(cfg.dataset, cfg.batch_size)
     cfg.input_dim = dm.inp_dim
@@ -80,14 +88,35 @@ def main(cfg: DictConfig):
         preds = vmap_model(ts, x)
         return jnp.sum(jnp.argmax(preds, axis=-1) == y)
 
-    # Training Loop with history collection
+    ckpt_dir = f"checkpoints/jax_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}"
+    os.makedirs(ckpt_dir, exist_ok=True)
+    
+    ckpt_path = os.path.join(ckpt_dir, "weights.eqx")
+    state_path = os.path.join(ckpt_dir, "training_state.json")
+
+    start_epoch = 0
     train_losses = []
     val_accs = []
-    
-    t0 = time.time()
-    for epoch in range(cfg.epochs):
+    total_time = 0.0
+
+    if os.path.exists(ckpt_path) and os.path.exists(state_path):
+        print(f"[JAX] Resuming from checkpoint: {ckpt_path}")
+        model, opt_state = eqx.tree_deserialise_leaves(ckpt_path, (model, opt_state))
+        
+        with open(state_path, "r") as f:
+            state = json.load(f)
+            start_epoch = state["epoch"]
+            train_losses = state["train_losses"]
+            val_accs = state["val_accs"]
+            total_time = state.get("total_time", 0.0)
+        print(f"[JAX] Fast-forwarding to epoch {start_epoch+1}")
+    else:
+        print(f"[JAX] Starting new training for {cfg.model} | {cfg.cell} | k={cfg.k_terms}")
+
+    for epoch in range(start_epoch, cfg.epochs):
         epoch_loss = 0.0
         steps = 0
+        t0 = time.time()
         
         # Train
         for batch_x, batch_y in train_loader:
@@ -98,7 +127,8 @@ def main(cfg: DictConfig):
             epoch_loss += loss.item()
             steps += 1
             
-        train_losses.append(epoch_loss / steps)
+        epoch_train_loss = epoch_loss / steps
+        train_losses.append(epoch_train_loss)
         
         # Validate
         correct = 0; total = 0
@@ -109,11 +139,31 @@ def main(cfg: DictConfig):
             correct += evaluate(model, ts, batch_x, batch_y)
             total += batch_y.shape[0]
             
-        val_accs.append(float(correct / total))
+        epoch_val_acc = float(correct / total)
+        val_accs.append(epoch_val_acc)
         
-    t_train = time.time() - t0
+        epoch_time = time.time() - t0
+        total_time += epoch_time
+
+        print(f"Epoch {epoch+1}/{cfg.epochs} | Loss: {epoch_train_loss:.4f} | Val Acc: {epoch_val_acc:.4f} | Time: {epoch_time:.2f}s")
+
+        #checkpoiny
+        temp_ckpt = ckpt_path + ".tmp"
+        eqx.tree_serialise_leaves(temp_ckpt, (model, opt_state))
+        os.replace(temp_ckpt, ckpt_path)
+
+        temp_state = state_path + ".tmp"
+        with open(temp_state, "w") as f:
+            json.dump({
+                "epoch": epoch + 1,
+                "train_losses": train_losses,
+                "val_accs": val_accs,
+                "total_time": total_time
+            }, f)
+        os.replace(temp_state, state_path)
 
     # Test
+    print("[JAX] Training finished. Evaluating on test set...")
     correct = 0; total = 0
     for batch_x, batch_y in test_loader:
         batch_x = jnp.array(batch_x.numpy())
@@ -124,17 +174,15 @@ def main(cfg: DictConfig):
         
     test_acc = float(correct / total)
 
-    os.makedirs("outputs", exist_ok=True)
     res = {
         "framework": "jax", "model": cfg.model, "cell": cfg.cell, 
         "k_terms": cfg.k_terms, "seed": cfg.seed, "params": params_count, 
-        "time_s": t_train, "acc": test_acc
+        "time_s": total_time, "acc": test_acc
     }
     
-    out_file = f"outputs/res_jax_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}.json"
     with open(out_file, "w") as f: json.dump(res, f)
+    print(f"[JAX] Results saved to {out_file}")
 
-    # === РИСУЕМ И СОХРАНЯЕМ ГРАФИК ===
     fig, ax1 = plt.subplots(figsize=(8, 5))
     ax1.set_xlabel('Epochs')
     ax1.set_ylabel('Train Loss', color='tab:red')
