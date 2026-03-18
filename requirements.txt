@@ -1,0 +1,15 @@
+# FILE: requirements.txt
+torch>=2.0.0
+torchmetrics
+pytorch-lightning
+torchode
+aeon
+scikit-learn
+hydra-core>=1.3.0
+omegaconf
+pandas
+jax[cuda12] 
+equinox
+diffrax
+optax
+matplotlib

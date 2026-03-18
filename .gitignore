@@ -1,0 +1,76 @@
+# -------------------------
+# Python cache / build
+# -------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+
+# -------------------------
+# System / Editor files
+# -------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# -------------------------
+# LLM Context & Helper Scripts
+# -------------------------
+context.sh
+llm_context.txt
+log-neural-cdes
+
+# -------------------------
+# Virtual environments
+# -------------------------
+venv/
+.env/
+.envrc
+.venv/
+
+# -------------------------
+# Logs & Results
+# -------------------------
+logs/
+*.log
+outputs/
+benchmark_results.csv
+
+# -------------------------
+# TensorBoard logs
+# -------------------------
+events.out.tfevents.*
+runs/
+runs_time/
+
+# -------------------------
+# Data files
+# -------------------------
+data/
+*.pkl
+*.npz
+*.npy
+*.csv
+*.tsv
+
+# -------------------------
+# Secrets & Config
+# -------------------------
+credentials
+*.key
+*.pem
+.env
+*.env
+
+# -------------------------
+# Research folders (Old / Original)
+# -------------------------
+old_plots/
+old/
+Ilya/

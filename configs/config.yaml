@@ -1,0 +1,17 @@
+# FILE: configs/config.yaml
+dataset: "CharacterTrajectories"
+batch_size: 128
+epochs: 50
+seed: 42
+
+model: "torch_auto" # baseline, torch_manual, torch_auto, jax_manual, jax_auto
+cell: "rnn"         # rnn, gru, lstm
+k_terms: 2          # 0, 1, 2, 3...
+hidden_dim: 128
+
+# placeholders
+input_dim: null
+output_dim: null
+
+defaults:
+  - _self_
