@@ -59,7 +59,6 @@ def main(cfg: DictConfig):
         print(f"[JAX] Experiment {file_prefix} already completed. Skipping.")
         return
 
-    # Вспомогательная функция для логирования
     def log_print(msg):
         print(msg)
         with open(log_path, "a") as f:
@@ -107,16 +106,22 @@ def main(cfg: DictConfig):
     ckpt_dir = f"checkpoints/{file_prefix}"
     os.makedirs(ckpt_dir, exist_ok=True)
     ckpt_path = os.path.join(ckpt_dir, "weights.eqx")
+    best_ckpt_path = os.path.join(ckpt_dir, "best_weights.eqx")
     state_path = os.path.join(ckpt_dir, "training_state.json")
 
     start_epoch, train_losses, val_accs, total_time = 0, [], [], 0.0
+    best_val_acc = -1.0 # Отслеживаем лучший результат
 
     if os.path.exists(ckpt_path) and os.path.exists(state_path):
         log_print(f"Resuming from checkpoint: {ckpt_path}")
         model, opt_state = eqx.tree_deserialise_leaves(ckpt_path, (model, opt_state))
         with open(state_path, "r") as f:
             state = json.load(f)
-            start_epoch, train_losses, val_accs, total_time = state["epoch"], state["train_losses"], state["val_accs"], state.get("total_time", 0.0)
+            start_epoch = state["epoch"]
+            train_losses = state["train_losses"]
+            val_accs = state["val_accs"]
+            total_time = state.get("total_time", 0.0)
+            best_val_acc = state.get("best_val_acc", -1.0)
     else:
         log_print("Starting new training...")
 
@@ -145,18 +150,32 @@ def main(cfg: DictConfig):
         val_accs.append(val_acc)
         total_time += (time.time() - t0)
 
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            eqx.tree_serialise_leaves(best_ckpt_path + ".tmp", (model, opt_state))
+            os.replace(best_ckpt_path + ".tmp", best_ckpt_path)
+            log_print(f"--> New best val_acc: {best_val_acc:.4f} at epoch {epoch+1}")
+
         pbar.set_postfix({"loss": f"{train_loss:.4f}", "val_acc": f"{val_acc:.4f}"})
         if (epoch + 1) % 5 == 0 or epoch == 0:
             log_print(f"Epoch {epoch+1}/{cfg.epochs} | Loss: {train_loss:.4f} | Val Acc: {val_acc:.4f}")
 
-        # Save Checkpoint
         eqx.tree_serialise_leaves(ckpt_path + ".tmp", (model, opt_state))
         os.replace(ckpt_path + ".tmp", ckpt_path)
         with open(state_path + ".tmp", "w") as f:
-            json.dump({"epoch": epoch + 1, "train_losses": train_losses, "val_accs": val_accs, "total_time": total_time}, f)
+            json.dump({
+                "epoch": epoch + 1, 
+                "train_losses": train_losses, 
+                "val_accs": val_accs, 
+                "total_time": total_time,
+                "best_val_acc": best_val_acc
+            }, f)
         os.replace(state_path + ".tmp", state_path)
 
-    log_print("Evaluating on test set...")
+    log_print("Evaluating on test set using BEST model...")
+    if os.path.exists(best_ckpt_path):
+        model, _ = eqx.tree_deserialise_leaves(best_ckpt_path, (model, opt_state))
+    
     correct, total = 0, 0
     for batch_x, batch_y in test_loader:
         batch_x, batch_y = jnp.array(batch_x.numpy()), jnp.array(batch_y.numpy())

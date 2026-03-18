@@ -79,7 +79,8 @@ def main(cfg: DictConfig):
 
     ckpt_dir = f"checkpoints/{file_prefix}"
     os.makedirs(ckpt_dir, exist_ok=True)
-    ckpt_path = os.path.join(ckpt_dir, "last.ckpt")
+    last_ckpt = os.path.join(ckpt_dir, "last.ckpt")
+    best_ckpt = os.path.join(ckpt_dir, "best.ckpt")
 
     history = MetricsHistoryCallback(log_path)
     history.log_print(f"=== Starting Torch Training: {file_prefix} ===")
@@ -87,8 +88,11 @@ def main(cfg: DictConfig):
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         dirpath=ckpt_dir,
+        monitor="val_acc",
+        mode="max",
+        filename="best",
         save_last=True,
-        save_top_k=0,  
+        save_top_k=1
     )
 
     trainer = Trainer(
@@ -100,15 +104,19 @@ def main(cfg: DictConfig):
         callbacks=[history, checkpoint_callback]
     )
     
-    if os.path.exists(ckpt_path):
-        history.log_print(f"Resuming from checkpoint: {ckpt_path}")
-        trainer.fit(model, datamodule=dm, ckpt_path=ckpt_path)
+    if os.path.exists(last_ckpt):
+        history.log_print(f"Resuming from checkpoint: {last_ckpt}")
+        trainer.fit(model, datamodule=dm, ckpt_path=last_ckpt)
     else:
         history.log_print(f"Starting new training...")
         trainer.fit(model, datamodule=dm)
 
-    history.log_print("Evaluating on test set...")
-    test_acc = trainer.test(model, datamodule=dm, ckpt_path=ckpt_path)[0]["test_acc"]
+    history.log_print(f"Evaluating on test set using BEST model...")
+    if os.path.exists(best_ckpt):
+        test_acc = trainer.test(model, datamodule=dm, ckpt_path=best_ckpt)[0]["test_acc"]
+    else:
+        test_acc = trainer.test(model, datamodule=dm)[0]["test_acc"]
+        
     history.log_print(f"Test Accuracy: {test_acc:.4f}")
 
     res = {
