@@ -39,12 +39,23 @@ df["Activation"] = df["activation"].replace({
 })
 df["K"] = df["k_terms"]
 
+
 summary = df.groupby(["Framework", "Model", "Activation", "K"]).agg(
     acc_mean=("acc", "mean"),
     acc_std=("acc", "std"),      
+    time_mean=("time_s", "mean"),
     params=("params", "first"),
     seeds=("acc", "count")       
 ).reset_index()
+
+baseline_times = {}
+for fw in df["Framework"].unique():
+    base_df = df[(df["Framework"] == fw) & (df["Model"] == "Baseline")]
+    if not base_df.empty:
+        baseline_times[fw] = base_df["time_s"].mean()
+    else:
+
+        baseline_times[fw] = df[df["Framework"] == fw]["time_s"].mean()
 
 def format_accuracy(row):
     mean_val = row["acc_mean"]
@@ -54,9 +65,15 @@ def format_accuracy(row):
     else:
         return f"{mean_val:.4f} ± {std_val:.4f}"
 
-summary["Accuracy"] = summary.apply(format_accuracy, axis=1)
+def format_time(row):
+    fw = row["Framework"]
+    rel_time = row["time_mean"] / baseline_times[fw]
+    return f"{rel_time:.2f}x"
 
-summary["Params"] = summary["params"].apply(lambda x: f"{int(x):,}")
+summary["Accuracy"] = summary.apply(format_accuracy, axis=1)
+summary["Time"] = summary.apply(format_time, axis=1)
+
+summary["Params"] = summary["params"].apply(lambda x: f"{int(round(x/1000))}K")
 
 sort_fw = {"PyTorch": 1, "JAX": 2}
 sort_md = {"Baseline": 1, "Manual": 2, "Auto": 3}
@@ -66,26 +83,26 @@ summary["sort_md"] = summary["Model"].map(sort_md)
 
 summary = summary.sort_values(["sort_fw", "sort_md", "K"])
 
-display_cols = ["Framework", "Model", "K", "Params", "Accuracy"]
+display_cols = ["Framework", "Model", "K", "Params", "Time", "Accuracy"]
 final_df = summary[["Activation"] + display_cols].copy()
 
-print("\n" + "="*55)
-print(" " * 20 + "RESULTS: ReLU")
-print("="*55)
+print("\n" + "="*65)
+print(" " * 25 + "RESULTS: ReLU")
+print("="*65)
 relu_df = final_df[final_df["Activation"] == "ReLU"][display_cols]
 if not relu_df.empty:
     print(relu_df.to_string(index=False))
 else:
     print("No data found for ReLU.")
 
-print("\n" + "="*55)
-print(" " * 15 + "RESULTS: Surrogate ReLU")
-print("="*55)
+print("\n" + "="*65)
+print(" " * 20 + "RESULTS: Surrogate ReLU")
+print("="*65)
 surr_df = final_df[final_df["Activation"] == "Surrogate ReLU"][display_cols]
 if not surr_df.empty:
     print(surr_df.to_string(index=False))
 else:
     print("No data found for Surrogate ReLU.")
-print("="*55 + "\n")
+print("="*65 + "\n")
 
 summary.drop(columns=["sort_fw", "sort_md"]).to_csv("benchmark_results.csv", index=False)
