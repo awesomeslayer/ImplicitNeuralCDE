@@ -101,7 +101,8 @@ def main(cfg: DictConfig):
         devices=1, 
         enable_checkpointing=True, 
         logger=False, 
-        callbacks=[history, checkpoint_callback]
+        callbacks=[history, checkpoint_callback],
+        inference_mode=False
     )
     
     if os.path.exists(last_ckpt):
