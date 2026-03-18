@@ -15,11 +15,13 @@ class CDELitModule(LightningModule):
             vf = BaselineCDE(cfg.input_dim, cfg.hidden_dim, cfg.cell)
         elif cfg.model == "torch_manual":
             from src_torch.models_manual import JaCDEManual
-            vf = JaCDEManual(cfg.input_dim, cfg.hidden_dim, cfg.cell, cfg.k_terms)
+           
+            vf = JaCDEManual(cfg.input_dim, cfg.hidden_dim, cfg.cell, cfg.k_terms, cfg.activation)
         elif cfg.model == "torch_auto":
             from src_torch.models_auto import JaCDEAutograd
             from src_torch.cells import RNNCell, GRUCell, LSTMCell
-            if cfg.cell == "rnn": cell = RNNCell(cfg.input_dim, cfg.hidden_dim)
+           
+            if cfg.cell == "rnn": cell = RNNCell(cfg.input_dim, cfg.hidden_dim, activation=cfg.activation)
             elif cfg.cell == "gru": cell = GRUCell(cfg.input_dim, cfg.hidden_dim)
             elif cfg.cell == "lstm": cell = LSTMCell(cfg.input_dim, cfg.hidden_dim)
             vf = JaCDEAutograd(cell, cfg.k_terms)

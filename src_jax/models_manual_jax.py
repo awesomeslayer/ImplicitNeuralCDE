@@ -8,12 +8,15 @@ class JaCDEManualJax(eqx.Module):
     wout: jax.Array
     b0: jax.Array
     b1: jax.Array
-    k_terms: int
+    k_terms: int = eqx.field(static=True)
+    activation: str = eqx.field(static=True)
 
-    def __init__(self, in_channels, hidden_channels, cell_type, k_terms, key):
+    def __init__(self, in_channels, hidden_channels, cell_type, k_terms, activation, key):
         self.k_terms = k_terms
+        self.activation = activation
+        
         if cell_type != "rnn":
-            raise NotImplementedError(f"Manual Jacobian for {cell_type} is too complex in JAX. Use autograd.")
+            raise NotImplementedError("Manual Jacobian for this cell is too complex.")
         
         k1, k2, k3 = jax.random.split(key, 3)
         limit_x = jnp.sqrt(6.0 / (in_channels + hidden_channels))
@@ -27,30 +30,33 @@ class JaCDEManualJax(eqx.Module):
         self.b1 = jnp.zeros(hidden_channels)
 
     def __call__(self, t, h, args):
-        interp = args # diffrax.CubicInterpolation
+        interp = args
         x = interp.evaluate(t)
         xdot = interp.derivative(t)
 
         l1 = self.wx @ x + self.wh @ h + self.b0
-        relu = jax.nn.relu(l1)
-        lout = self.wout @ relu + self.b1
-        tanh = jnp.tanh(lout)
+        relu_val = jax.nn.relu(l1)
+        lout = self.wout @ relu_val + self.b1
+        tanh_val = jnp.tanh(lout)
 
-        dtanh = 1 - tanh**2
-        drelu = jax.nn.sigmoid(l1) # surrogate gradient
+        dtanh = 1 - tanh_val**2
+        
+        if self.activation == "surrogate_relu":
+            drelu = jax.nn.sigmoid(l1)
+        else:
+            drelu = (l1 > 0).astype(jnp.float32)
         
         d_outer = dtanh[:, None] * self.wout * drelu[None, :]
+        
         Jx = d_outer @ self.wx
         Jh = d_outer @ self.wh
 
-        # Taylor expansion with lax.fori_loop
         jx = Jx @ xdot
         h_dot = jx
+        curr_term = jx
         
-        def body_fun(i, val):
-            v_i, sum_v = val
-            v_next = Jh @ v_i
-            return (v_next, sum_v + v_next)
-        
-        _, h_dot = jax.lax.fori_loop(0, self.k_terms, body_fun, (jx, h_dot))
+        for _ in range(self.k_terms):
+            curr_term = Jh @ curr_term
+            h_dot = h_dot + curr_term
+            
         return h_dot

@@ -62,7 +62,7 @@ def main(cfg: DictConfig):
     
     os.makedirs("outputs", exist_ok=True)
     
-    file_prefix = f"torch_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}"
+    file_prefix = f"torch_{cfg.model}_{cfg.cell}_{cfg.activation}_k{cfg.k_terms}_s{cfg.seed}"
     out_file = f"outputs/res_{file_prefix}.json"
     log_path = f"outputs/log_{file_prefix}.txt"
     

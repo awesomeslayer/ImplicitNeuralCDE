@@ -6,6 +6,7 @@ seed: 42
 
 model: "torch_auto" # baseline, torch_manual, torch_auto, jax_manual, jax_auto
 cell: "rnn"         # rnn, gru, lstm
+activation: "surrogate_relu" # "relu", "surrogate_relu"
 k_terms: 2          # 0, 1, 2, 3...
 hidden_dim: 128
 

@@ -4,13 +4,14 @@ import torch.nn.functional as F
 from src_torch.nat_cub_spline import eval_cubic_spline
 
 class JaCDEManual(nn.Module):
-    def __init__(self, in_channels, hidden_channels, cell_type, k_terms):
+    def __init__(self, in_channels, hidden_channels, cell_type, k_terms, activation):
         super().__init__()
         self.cell_type = cell_type
         self.k_terms = k_terms
+        self.activation = activation 
         
         if cell_type != "rnn":
-            raise NotImplementedError(f"Manual Jacobian for {cell_type} is too complex. Use autograd.")
+            raise NotImplementedError("Manual Jacobian for this cell is too complex.")
             
         self.wx = nn.Parameter(torch.empty(hidden_channels, in_channels))
         self.wh = nn.Parameter(torch.empty(hidden_channels, hidden_channels))
@@ -33,9 +34,15 @@ class JaCDEManual(nn.Module):
         relu = l1.relu()
         tanh = (F.linear(relu, self.wout) + self.b1).tanh()
 
-        # Compute jacobians
+        
         dtanh = 1 - tanh**2
-        drelu = l1.sigmoid() # surrogate gradient
+        
+        
+        if self.activation == "surrogate_relu":
+            drelu = l1.sigmoid()
+        else:
+            drelu = (l1 > 0).float()
+            
         d_outer = dtanh[:, :, None] * self.wout * drelu[:, None, :]
         
         Jx = d_outer @ self.wx

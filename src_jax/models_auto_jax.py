@@ -3,14 +3,14 @@ import equinox as eqx
 
 class JaCDEAutoJax(eqx.Module):
     cell: eqx.Module
-    k_terms: int
+    k_terms: int = eqx.field(static=True) 
     
     def __init__(self, cell, k_terms):
         self.cell = cell
         self.k_terms = k_terms
 
     def __call__(self, t, h, args):
-        interp = args # diffrax.CubicInterpolation passes itself in args
+        interp = args
         x = interp.evaluate(t)
         xdot = interp.derivative(t)
         
@@ -20,11 +20,8 @@ class JaCDEAutoJax(eqx.Module):
         _, v = jax.jvp(f_x, (x,), (xdot,))
         h_dot = v
         
-        # Taylor Expansion (k>0)
-        def body(i, val):
-            v_i, sum_v = val
-            _, v_next = jax.jvp(f_h, (h,), (v_i,))
-            return (v_next, sum_v + v_next)
+        for _ in range(self.k_terms):
+            _, v = jax.jvp(f_h, (h,), (v,))
+            h_dot = h_dot + v
             
-        _, h_dot = jax.lax.fori_loop(0, self.k_terms, body, (v, h_dot))
         return h_dot

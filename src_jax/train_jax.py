@@ -13,16 +13,18 @@ class ClassifierJax(eqx.Module):
     cde_func: eqx.Module
     linear: eqx.nn.Linear
     
-    def __init__(self, in_c, hid_c, out_c, model_type, cell_type, k_terms, key):
+    def __init__(self, in_c, hid_c, out_c, model_type, cell_type, k_terms, activation, key):
         k1, k2 = jax.random.split(key)
         
         if model_type == "jax_baseline":
             from src_jax.models_baseline_jax import BaselineCDEJax
             self.cde_func = BaselineCDEJax(in_c, hid_c, cell_type, k1)
         elif model_type == "jax_manual":
-            self.cde_func = JaCDEManualJax(in_c, hid_c, cell_type, k_terms, k1)
+        
+            self.cde_func = JaCDEManualJax(in_c, hid_c, cell_type, k_terms, activation, k1)
         elif model_type == "jax_auto":
-            if cell_type == "rnn": cell = RNNCellJax(in_c, hid_c, k1)
+          
+            if cell_type == "rnn": cell = RNNCellJax(in_c, hid_c, k1, activation=activation)
             elif cell_type == "gru": cell = GRUCellJax(in_c, hid_c, k1)
             elif cell_type == "lstm": cell = LSTMCellJax(in_c, hid_c, k1)
             else: raise ValueError(f"Unknown cell: {cell_type}")
@@ -45,13 +47,13 @@ class ClassifierJax(eqx.Module):
             stepsize_controller=diffrax.PIDController(rtol=1e-3, atol=1e-3)
         )
         return self.linear(sol.ys[-1])
-
+    
 @hydra.main(version_base="1.3", config_path="../configs", config_name="config")
 def main(cfg: DictConfig):
     OmegaConf.set_struct(cfg, False)
     os.makedirs("outputs", exist_ok=True)
     
-    file_prefix = f"jax_{cfg.model}_{cfg.cell}_k{cfg.k_terms}_s{cfg.seed}"
+    file_prefix = f"jax_{cfg.model}_{cfg.cell}_{cfg.activation}_k{cfg.k_terms}_s{cfg.seed}"
     out_file = f"outputs/res_{file_prefix}.json"
     log_path = f"outputs/log_{file_prefix}.txt"
 
@@ -71,7 +73,7 @@ def main(cfg: DictConfig):
     cfg.output_dim = dm.out_dim
 
     key = jax.random.PRNGKey(cfg.seed)
-    model = ClassifierJax(cfg.input_dim, cfg.hidden_dim, cfg.output_dim, cfg.model, cfg.cell, cfg.k_terms, key)
+    model = ClassifierJax(cfg.input_dim, cfg.hidden_dim, cfg.output_dim, cfg.model, cfg.cell, cfg.k_terms, cfg.activation, key)
     
     params_count = sum(x.size for x in jax.tree_util.tree_leaves(eqx.filter(model, eqx.is_array)))
     log_print(f"Model parameters: {params_count:,}")

@@ -3,87 +3,62 @@
 export JAX_LOG_LEVEL=warning
 export TF_CPP_MIN_LOG_LEVEL=2
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
-
-# Exit on error
 set -e
-
 export PYTHONPATH=$(pwd)
 
 DATASET="CharacterTrajectories"
 BATCH_SIZE=128
 HIDDEN_DIM=128
-EPOCHS=50
-SEED=42
+EPOCHS=35
+SEED=43
 
-echo "================================================="
-echo "Starting FULL benchmark (Baselines + Jacobians)"
+
+echo "Starting FULL benchmark (Baselines + Jacobians + Activations)"
 echo "Parameters: bs=$BATCH_SIZE, hidden=$HIDDEN_DIM, epochs=$EPOCHS"
 echo "================================================="
 
 # ==========================================
 # 0. BASELINES (Matrix-CDEs)
 # ==========================================
-# mlp  : Original Matrix CDE (no x_t)
-# rnn  : ~66k params matrix CDE
-# gru  : ~100k params matrix CDE
-# lstm : ~67k-117k params matrix CDE
-
-#for cell in rnn gru lstm; do
 for cell in rnn; do
-    echo "--> Running [Torch Baseline] | Cell: $cell | K: 0"
-    python src_torch/train_torch.py dataset=$DATASET model=torch_baseline cell=$cell k_terms=0 batch_size=$BATCH_SIZE hidden_dim=$HIDDEN_DIM epochs=$EPOCHS seed=$SEED
-done
+    echo "--> Running [Torch Baseline] | Cell: $cell"
+    python src_torch/train_torch.py dataset=$DATASET model=torch_baseline cell=$cell k_terms=0 activation=relu epochs=$EPOCHS seed=$SEED
 
-#for cell in rnn gru lstm; do
-for cell in rnn ; do
-    echo "--> Running [JAX Baseline] | Cell: $cell | K: 0"
-    python src_jax/train_jax.py dataset=$DATASET model=jax_baseline cell=$cell k_terms=0 batch_size=$BATCH_SIZE hidden_dim=$HIDDEN_DIM epochs=$EPOCHS seed=$SEED
+    echo "--> Running [JAX Baseline] | Cell: $cell"
+    python src_jax/train_jax.py dataset=$DATASET model=jax_baseline cell=$cell k_terms=0 activation=relu epochs=$EPOCHS seed=$SEED
 done
-
 
 # ==========================================
-# 1. TORCH MODELS
+# 1. TORCH & JAX MODELS (Ablation: Surrogate vs ReLU)
 # ==========================================
-# Torch Manual (Supports ONLY RNN)
 
-#for k in 1 2 3; do
-for k in 1; do
-    for cell in rnn; do
-        echo "--> Running [Torch Manual] | Cell: $cell | K: $k"
-        python src_torch/train_torch.py dataset=$DATASET model=torch_manual cell=$cell k_terms=$k batch_size=$BATCH_SIZE hidden_dim=$HIDDEN_DIM epochs=$EPOCHS seed=$SEED
+for act in "surrogate_relu" "relu"; do
+    echo "****************************************"
+    echo "Testing with Activation: $act"
+    echo "****************************************"
+
+    # --- TORCH MANUAL ---
+    for k in 1 2 3; do
+        echo "--> [Torch Manual] | K: $k | Act: $act"
+        python src_torch/train_torch.py dataset=$DATASET model=torch_manual cell=rnn k_terms=$k activation=$act epochs=$EPOCHS seed=$SEED
     done
-done
 
-# Torch Auto (Supports RNN, GRU, LSTM)
-#for k in 1 2 3; do
-# for k in 1; do
-#     #for cell in rnn gru lstm; do
-#     for cell in rnn; do
-#         echo "--> Running [Torch Auto] | Cell: $cell | K: $k"
-#         python src_torch/train_torch.py dataset=$DATASET model=torch_auto cell=$cell k_terms=$k batch_size=$BATCH_SIZE hidden_dim=$HIDDEN_DIM epochs=$EPOCHS seed=$SEED
-#     done
-# done
+    # --- TORCH AUTO (Только K=1 из-за скорости) ---
+    # for k in 1; do
+    #     echo "--> [Torch Auto] | K: $k | Act: $act"
+    #     python src_torch/train_torch.py dataset=$DATASET model=torch_auto cell=rnn k_terms=$k activation=$act epochs=$EPOCHS seed=$SEED
+    # done
 
-
-# # ==========================================
-# # 2. JAX MODELS
-# # ==========================================
-# # JAX Manual (Supports ONLY RNN)
-#for k in 1 2 3; do
-for k in 1; do
-    for cell in rnn; do
-        echo "--> Running [JAX Manual] | Cell: $cell | K: $k"
-        python src_jax/train_jax.py dataset=$DATASET model=jax_manual cell=$cell k_terms=$k batch_size=$BATCH_SIZE hidden_dim=$HIDDEN_DIM epochs=$EPOCHS seed=$SEED
+    # --- JAX MANUAL ---
+    for k in 1 2 3; do
+        echo "--> [JAX Manual] | K: $k | Act: $act"
+        python src_jax/train_jax.py dataset=$DATASET model=jax_manual cell=rnn k_terms=$k activation=$act epochs=$EPOCHS seed=$SEED
     done
-done
 
-# # JAX Auto (Supports RNN, GRU, LSTM)
-# #for k in 1 2 3; do
-for k in 1; do
-    #for cell in rnn gru lstm; do
-    for cell in rnn; do
-        echo "--> Running [JAX Auto] | Cell: $cell | K: $k"
-        python src_jax/train_jax.py dataset=$DATASET model=jax_auto cell=$cell k_terms=$k batch_size=$BATCH_SIZE hidden_dim=$HIDDEN_DIM epochs=$EPOCHS seed=$SEED
+    # --- JAX AUTO ---
+    for k in 1 2 3; do
+        echo "--> [JAX Auto] | K: $k | Act: $act"
+        python src_jax/train_jax.py dataset=$DATASET model=jax_auto cell=rnn k_terms=$k activation=$act epochs=$EPOCHS seed=$SEED
     done
 done
 
