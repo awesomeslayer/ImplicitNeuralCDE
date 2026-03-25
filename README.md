@@ -43,7 +43,7 @@ As shown below, our Jacobian NCDE with `surrogate_relu` matches the Matrix NCDE 
 Reduction from 69K to 36K parameters (~48% fewer params).
 
 **Surrogate ReLU (Proposed Method)**
-| Framework | Model | K | Params | Time | Accuracy |
+| Framework | Model | K | Params | Mean Time | Accuracy |
 |:---|:---|:---:|---:|---:|:---|
 | PyTorch | Manual | 1 | 36K | 0.88x | 0.9336 ± 0.0066 |
 | PyTorch | Manual | 2 | 36K | 1.50x | 0.9196 ± 0.0112 |
@@ -56,7 +56,7 @@ Reduction from 69K to 36K parameters (~48% fewer params).
 | JAX | Auto | 3 | 36K | 2.68x | 0.9021 ± 0.0111 |
 
 **Standard ReLU (Ablation)**
-| Framework | Model | K | Params | Time | Accuracy |
+| Framework | Model | K | Params | Mean Time | Accuracy |
 |:---|:---|:---:|---:|---:|:---|
 | **PyTorch** | **Baseline** | **0** | **69K** | **1.00x** | **0.9476 ± 0.0094** |
 | PyTorch | Manual | 1 | 36K | 1.63x | 0.8427 ± 0.0087 |
@@ -77,7 +77,7 @@ Reduction from 69K to 36K parameters (~48% fewer params).
 Reduction from 70K to 36K parameters (~48% fewer params).
 
 **Surrogate ReLU (Proposed Method)**
-| Framework | Model | K | Params | Time | Accuracy |
+| Framework | Model | K | Params | Mean Time | Accuracy |
 |:---|:---|:---:|---:|---:|:---|
 | PyTorch | Auto | 1 | 36K | 2.46x | 0.9380 ± 0.0084 |
 | JAX | Auto | 1 | 36K | 1.55x | 0.9523 ± 0.0067 |
@@ -85,7 +85,7 @@ Reduction from 70K to 36K parameters (~48% fewer params).
 | JAX | Auto | 3 | 36K | 2.49x | 0.9491 ± 0.0083 |
 
 **Standard ReLU (Ablation)**
-| Framework | Model | K | Params | Time | Accuracy |
+| Framework | Model | K | Params | Mean Time | Accuracy |
 |:---|:---|:---:|---:|---:|:---|
 | **PyTorch** | **Baseline** | **0** | **70K** | **1.00x** | **0.9349 ± 0.0139** |
 | PyTorch | Auto | 1 | 36K | 2.32x | 0.7818 ± 0.0293 |
@@ -100,7 +100,7 @@ Reduction from 70K to 36K parameters (~48% fewer params).
 Reduction from 103K to 70K parameters (~32% fewer params).
 
 **Surrogate ReLU (Proposed Method)**
-| Framework | Model | K | Params | Time | Accuracy |
+| Framework | Model | K | Params | Mean Time | Accuracy |
 |:---|:---|:---:|---:|---:|:---|
 | PyTorch | Auto | 1 | 70K | 2.53x | 0.9500 ± 0.0066 |
 | JAX | Auto | 1 | 70K | 1.65x | 0.9678 ± 0.0175 |
@@ -108,7 +108,7 @@ Reduction from 103K to 70K parameters (~32% fewer params).
 | JAX | Auto | 3 | 70K | 2.47x | 0.9569 ± 0.0109 |
 
 **Standard ReLU (Ablation)**
-| Framework | Model | K | Params | Time | Accuracy |
+| Framework | Model | K | Params | Mean Time | Accuracy |
 |:---|:---|:---:|---:|---:|:---|
 | **PyTorch** | **Baseline** | **0** | **103K** | **1.00x** | **0.9322 ± 0.0167** |
 | PyTorch | Auto | 1 | 70K | 2.42x | 0.8038 ± 0.0173 |
