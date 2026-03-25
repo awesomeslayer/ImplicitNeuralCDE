@@ -3,10 +3,15 @@ import torch.nn as nn
 
 class SurrogateReLU(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input):
-        ctx.save_for_backward(input)
-        ctx.jvp_input = input 
+    def forward(input):
         return input.clamp(min=0)
+
+    @staticmethod
+    def setup_context(ctx, inputs, output):
+        
+        input, = inputs
+        ctx.save_for_backward(input)
+        ctx.jvp_input = input  
 
     @staticmethod
     def backward(ctx, grad_output):

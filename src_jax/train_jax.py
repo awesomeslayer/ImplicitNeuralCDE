@@ -137,7 +137,8 @@ def main(cfg: DictConfig):
             model, opt_state, loss = make_step(model, opt_state, ts, batch_x, batch_y)
             epoch_loss += loss.item()
             steps += 1
-            
+            if cfg.smoke_test: break
+
         train_loss = epoch_loss / steps
         train_losses.append(train_loss)
         
@@ -147,7 +148,8 @@ def main(cfg: DictConfig):
             ts = jnp.arange(batch_x.shape[1], dtype=jnp.float32)
             correct += evaluate(model, ts, batch_x, batch_y)
             total += batch_y.shape[0]
-            
+            if cfg.smoke_test: break
+
         val_acc = float(correct / total)
         val_accs.append(val_acc)
         total_time += (time.time() - t0)
@@ -174,6 +176,10 @@ def main(cfg: DictConfig):
             }, f)
         os.replace(state_path + ".tmp", state_path)
 
+        if cfg.smoke_test: 
+            log_print("Smoke test step complete.")
+            break
+        
     log_print("Evaluating on test set using BEST model...")
     if os.path.exists(best_ckpt_path):
         model, _ = eqx.tree_deserialise_leaves(best_ckpt_path, (model, opt_state))

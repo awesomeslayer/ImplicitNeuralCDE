@@ -10,13 +10,14 @@ class CDELitModule(LightningModule):
         super().__init__()
         self.cfg = cfg
         
+        track_r = cfg.get("track_radius", False)
+
         if cfg.model == "torch_baseline":
             from src_torch.models_baseline import BaselineCDE 
             vf = BaselineCDE(cfg.input_dim, cfg.hidden_dim, cfg.cell)
         elif cfg.model == "torch_manual":
             from src_torch.models_manual import JaCDEManual
-           
-            vf = JaCDEManual(cfg.input_dim, cfg.hidden_dim, cfg.cell, cfg.k_terms, cfg.activation)
+            vf = JaCDEManual(cfg.input_dim, cfg.hidden_dim, cfg.cell, cfg.k_terms, cfg.activation, track_r)
         elif cfg.model == "torch_auto":
             from src_torch.models_auto import JaCDEAutograd
             from src_torch.cells import RNNCell, GRUCell, LSTMCell
@@ -24,11 +25,12 @@ class CDELitModule(LightningModule):
             if cfg.cell == "rnn": cell = RNNCell(cfg.input_dim, cfg.hidden_dim, activation=cfg.activation)
             elif cfg.cell == "gru": cell = GRUCell(cfg.input_dim, cfg.hidden_dim)
             elif cfg.cell == "lstm": cell = LSTMCell(cfg.input_dim, cfg.hidden_dim)
-            vf = JaCDEAutograd(cell, cfg.k_terms)
+            vf = JaCDEAutograd(cell, cfg.k_terms, track_r)
 
         term = to.ODETerm(vf, with_args=True)
         self.solver = to.AutoDiffAdjoint(to.Dopri5(term), to.IntegralController(1e-3, 1e-3, term=term), backprop_through_step_size_control=False)
-
+        self.vf = vf  
+        
         self.head = nn.Linear(cfg.hidden_dim, cfg.output_dim)
         self.loss = nn.CrossEntropyLoss()
         
@@ -52,11 +54,25 @@ class CDELitModule(LightningModule):
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
+    def on_train_epoch_end(self):
+        if hasattr(self.vf, "train_spec_rad_count") and self.vf.train_spec_rad_count > 0:
+            avg_rad = self.vf.train_spec_rad_sum / self.vf.train_spec_rad_count
+            self.log("train_spec_rad", avg_rad, sync_dist=True)
+            self.vf.train_spec_rad_sum = 0.0
+            self.vf.train_spec_rad_count = 0
+
     def validation_step(self, batch, batch_idx):
         x, y = batch
         preds = self.forward(x)
         self.val_acc(preds.argmax(dim=-1), y)
         self.log("val_acc", self.val_acc, on_epoch=True, prog_bar=True)
+
+    def on_validation_epoch_end(self):
+        if hasattr(self.vf, "val_spec_rad_count") and self.vf.val_spec_rad_count > 0:
+            avg_rad = self.vf.val_spec_rad_sum / self.vf.val_spec_rad_count
+            self.log("val_spec_rad", avg_rad, sync_dist=True)
+            self.vf.val_spec_rad_sum = 0.0
+            self.vf.val_spec_rad_count = 0
 
     def test_step(self, batch, batch_idx):
         preds = self.forward(batch[0])

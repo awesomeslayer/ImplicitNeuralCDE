@@ -1,4 +1,3 @@
-# FILE: scripts/aggregate.py
 import os
 import json
 import pandas as pd
@@ -33,14 +32,14 @@ model_map = {
 
 df["Framework"] = df["framework"].map(fw_map)
 df["Model"] = df["model"].map(model_map)
+df["Cell"] = df["cell"].str.upper()
 df["Activation"] = df["activation"].replace({
     "relu": "ReLU", 
     "surrogate_relu": "Surrogate ReLU"
 })
 df["K"] = df["k_terms"]
 
-
-summary = df.groupby(["Framework", "Model", "Activation", "K"]).agg(
+summary = df.groupby(["Framework", "Model", "Cell", "Activation", "K"]).agg(
     acc_mean=("acc", "mean"),
     acc_std=("acc", "std"),      
     time_mean=("time_s", "mean"),
@@ -48,14 +47,15 @@ summary = df.groupby(["Framework", "Model", "Activation", "K"]).agg(
     seeds=("acc", "count")       
 ).reset_index()
 
+# Нормировка времени ОТДЕЛЬНО ДЛЯ КАЖДОГО CELL и ФРЕЙМВОРКА
 baseline_times = {}
 for fw in df["Framework"].unique():
-    base_df = df[(df["Framework"] == fw) & (df["Model"] == "Baseline")]
-    if not base_df.empty:
-        baseline_times[fw] = base_df["time_s"].mean()
-    else:
-
-        baseline_times[fw] = df[df["Framework"] == fw]["time_s"].mean()
+    for cell in df["Cell"].unique():
+        base_df = df[(df["Framework"] == fw) & (df["Model"] == "Baseline") & (df["Cell"] == cell)]
+        if not base_df.empty:
+            baseline_times[(fw, cell)] = base_df["time_s"].mean()
+        else:
+            baseline_times[(fw, cell)] = df[(df["Framework"] == fw) & (df["Cell"] == cell)]["time_s"].mean()
 
 def format_accuracy(row):
     mean_val = row["acc_mean"]
@@ -67,42 +67,48 @@ def format_accuracy(row):
 
 def format_time(row):
     fw = row["Framework"]
-    rel_time = row["time_mean"] / baseline_times[fw]
+    cell = row["Cell"]
+    b_time = baseline_times.get((fw, cell), row["time_mean"])
+    rel_time = row["time_mean"] / b_time
     return f"{rel_time:.2f}x"
 
 summary["Accuracy"] = summary.apply(format_accuracy, axis=1)
 summary["Time"] = summary.apply(format_time, axis=1)
-
 summary["Params"] = summary["params"].apply(lambda x: f"{int(round(x/1000))}K")
 
 sort_fw = {"PyTorch": 1, "JAX": 2}
 sort_md = {"Baseline": 1, "Manual": 2, "Auto": 3}
+sort_cell = {"RNN": 1, "LSTM": 2, "GRU": 3}
 
 summary["sort_fw"] = summary["Framework"].map(sort_fw)
 summary["sort_md"] = summary["Model"].map(sort_md)
+summary["sort_cell"] = summary["Cell"].map(sort_cell)
 
-summary = summary.sort_values(["sort_fw", "sort_md", "K"])
+summary = summary.sort_values(["sort_fw", "sort_md", "sort_cell", "K"])
 
 display_cols = ["Framework", "Model", "K", "Params", "Time", "Accuracy"]
-final_df = summary[["Activation"] + display_cols].copy()
+final_df = summary[["Cell", "Activation"] + display_cols].copy()
 
-print("\n" + "="*65)
-print(" " * 25 + "RESULTS: ReLU")
-print("="*65)
-relu_df = final_df[final_df["Activation"] == "ReLU"][display_cols]
-if not relu_df.empty:
-    print(relu_df.to_string(index=False))
-else:
-    print("No data found for ReLU.")
+for cell in ["RNN", "LSTM", "GRU"]:
+    cell_df = final_df[final_df["Cell"] == cell]
+    if cell_df.empty:
+        continue
+        
+    print("\n" + "#"*75)
+    print(f"{' ' * 32}CELL: {cell}")
+    print("#"*75)
+    
+    for act in ["ReLU", "Surrogate ReLU"]:
+        print("\n" + "-"*75)
+        print(f"{' ' * 27}Activation: {act}")
+        print("-"*75)
+        
+        act_df = cell_df[cell_df["Activation"] == act][display_cols]
+        if not act_df.empty:
+            print(act_df.to_string(index=False))
+        else:
+            print(f"No data found for {act} in {cell}.")
 
-print("\n" + "="*65)
-print(" " * 20 + "RESULTS: Surrogate ReLU")
-print("="*65)
-surr_df = final_df[final_df["Activation"] == "Surrogate ReLU"][display_cols]
-if not surr_df.empty:
-    print(surr_df.to_string(index=False))
-else:
-    print("No data found for Surrogate ReLU.")
-print("="*65 + "\n")
+print("\n" + "#"*75 + "\n")
 
-summary.drop(columns=["sort_fw", "sort_md"]).to_csv("benchmark_results.csv", index=False)
+summary.drop(columns=["sort_fw", "sort_md", "sort_cell"]).to_csv("benchmark_results.csv", index=False)

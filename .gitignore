@@ -74,3 +74,5 @@ Ilya/
 checkpoints/
 
 !outputs/*.png
+generate.py
+outputs_copy/

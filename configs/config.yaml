@@ -1,4 +1,3 @@
-# FILE: configs/config.yaml
 dataset: "CharacterTrajectories"
 batch_size: 128
 epochs: 50
@@ -9,6 +8,9 @@ cell: "rnn"         # rnn, gru, lstm
 activation: "surrogate_relu" # "relu", "surrogate_relu"
 k_terms: 2          # 0, 1, 2, 3...
 hidden_dim: 128
+track_radius: false 
+smoke_test: false 
+
 
 # placeholders
 input_dim: null

@@ -1,18 +1,19 @@
+
 # Implicit Neural Controlled Differential Equations
 
 This repository implements **Parameter-Efficient Neural CDEs via Implicit Function Jacobians**. 
 
 Standard Neural Controlled Differential Equations (NCDEs) require a massive output weight matrix to match the tensor dimensions of the hidden state and the input sequence. This project replaces that matrix with an implicit continuous recurrent step. You compute the hidden trajectory derivative using a Taylor expansion of the implicit function Jacobian. 
 
-This approach cuts the parameter count in half (from ~69K to ~36K) while maintaining state-of-the-art test accuracy.
+This approach significantly cuts the parameter count (e.g., from ~70K to ~36K for RNN/LSTM and ~103K to ~70K for GRU on 3D dataset) while maintaining state-of-the-art test accuracy.
 
 ## Architecture
 
-The codebase provides four distinct execution paths across two deep learning frameworks. 
+The codebase provides distinct execution paths across two deep learning frameworks. 
 
 **PyTorch Implementations:**
 * **Manual:** Explicit Jacobian matrix formulation for continuous RNN cells.
-* **Autograd:** Forward-mode automatic differentiation (Jacobian-Vector Products) using `torch.func.jvp`. This path supports RNN, GRU, and LSTM cells without requiring explicit matrix derivations.
+* **Autograd:** Forward-mode automatic differentiation (Jacobian-Vector Products) using `torch.func.jvp`. This path supports RNN, GRU, and LSTM cells without requiring explicit mathematical matrix derivations.
 
 **JAX Implementations:**
 * **Manual:** Explicit Jacobian calculations optimized through XLA compilation (unrolled loops).
@@ -26,15 +27,20 @@ You control the precision of the implicit approximation using the `k_terms` para
 ### The `activation` Parameter (Surrogate Gradients)
 To train the implicit Jacobian CDE, the autograd engine must compute the **second derivative** of the activation function. 
 * **`relu`**: Standard ReLU has a second derivative of zero everywhere. This causes catastrophic gradient vanishing in deep layers.
-* **`surrogate_relu` (Proposed)**: We replace the backward pass of the ReLU derivative (Heaviside step function) with a continuous **Sigmoid** function. This allows smooth, non-zero gradients to flow back to the network's weights.
+* **`surrogate_relu` (Proposed)**: We replace the backward pass of the ReLU derivative (Heaviside step function) with a continuous **Sigmoid** function. This allows smooth, non-zero gradients to flow back to the network's weights, ensuring stable convergence.
 
 ---
 
-## Benchmark Results (RNN, CharacterTrajectories)
+## Benchmark Results (CharacterTrajectories)
 
-As shown below, our Jacobian NCDE with `surrogate_relu` matches the Matrix NCDE Baseline while using **~50% fewer parameters**. The **Time** column represents the relative training duration compared to the baseline model (1.00x) for each respective framework.
+As shown below, our Jacobian NCDE with `surrogate_relu` matches the Matrix NCDE Baseline while using **significantly fewer parameters**. The **Time** column represents the relative training duration compared to the baseline model (1.00x) for each respective framework and cell type.
 
-### Surrogate ReLU (Proposed Method)
+*(Note: Run the `scripts/aggregate.py` script after execution to populate the exact metrics and generate the `benchmark_results.csv` file).*
+
+### 1. RNN Cell Results
+Reduction from 69K to 36K parameters (~48% fewer params).
+
+**Surrogate ReLU (Proposed Method)**
 | Framework | Model | K | Params | Time | Accuracy |
 |:---|:---|:---:|---:|---:|---:|
 | **PyTorch** | **Baseline** | **0** | **69K** | **1.00x** | **0.9476** |
@@ -49,9 +55,7 @@ As shown below, our Jacobian NCDE with `surrogate_relu` matches the Matrix NCDE 
 | JAX | Auto | 2 | 36K | 1.66x | 0.9056 |
 | JAX | Auto | 3 | 36K | 2.68x | 0.9021 |
 
-### Standard ReLU (Ablation)
-*Without surrogate gradients, the second derivative vanishes, dropping performance.*
-
+**Standard ReLU (Ablation)**
 | Framework | Model | K | Params | Time | Accuracy |
 |:---|:---|:---:|---:|---:|---:|
 | PyTorch | Manual | 1 | 36K | 1.63x | 0.8427 |
@@ -65,15 +69,74 @@ As shown below, our Jacobian NCDE with `surrogate_relu` matches the Matrix NCDE 
 | JAX | Auto | 2 | 36K | 3.16x | 0.8986 |
 | JAX | Auto | 3 | 36K | 4.05x | 0.7622 |
 
-*(Note: Run the aggregate script after execution to populate the exact time multipliers).*
+---
+
+### 2. LSTM Cell Results
+Reduction from 70K to 36K parameters (~48% fewer params). Explicit `Manual` Jacobians are omitted for gated architectures due to mathematical complexity.
+
+**Surrogate ReLU (Proposed Method)**
+| Framework | Model | K | Params | Time | Accuracy |
+|:---|:---|:---:|---:|---:|---:|
+| **PyTorch** | **Baseline** | **0** | **70K** | **1.00x** | **0.9349** |
+| PyTorch | Auto | 1 | 36K | 2.46x | 0.9380 |
+| **JAX** | **Baseline** | **0** | **70K** | **1.00x** | **0.9590** |
+| JAX | Auto | 1 | 36K | 1.55x | 0.9523 |
+| JAX | Auto | 2 | 36K | 1.97x | 0.9522 |
+| JAX | Auto | 3 | 36K | 2.49x | 0.9491 |
+
+**Standard ReLU (Ablation)**
+| Framework | Model | K | Params | Time | Accuracy |
+|:---|:---|:---:|---:|---:|---:|
+| PyTorch | Auto | 1 | 36K | 2.32x | 0.7818 |
+| JAX | Auto | 1 | 36K | 1.67x | 0.8288 |
+| JAX | Auto | 2 | 36K | 1.92x | 0.7663 |
+| JAX | Auto | 3 | 36K | 2.31x | 0.6971 |
 
 ---
 
-## Convergence Analysis
+### 3. GRU Cell Results
+Reduction from 103K to 70K parameters (~32% fewer params).
 
-Below is a comparison of training curves for the **PyTorch Manual** model. Notice how the **Surrogate ReLU** maintains stable and high validation accuracy, whereas the standard **ReLU** suffers from gradient vanishing.
+**Surrogate ReLU (Proposed Method)**
+| Framework | Model | K | Params | Time | Accuracy |
+|:---|:---|:---:|---:|---:|---:|
+| **PyTorch** | **Baseline** | **0** | **103K** | **1.00x** | **0.9322** |
+| PyTorch | Auto | 1 | 70K | 2.53x | 0.9500 |
+| **JAX** | **Baseline** | **0** | **103K** | **1.00x** | **0.9536** |
+| JAX | Auto | 1 | 70K | 1.65x | 0.9678 |
+| JAX | Auto | 2 | 70K | 2.01x | 0.9510 |
+| JAX | Auto | 3 | 70K | 2.47x | 0.9569 |
 
-### Surrogate ReLU vs Standard ReLU (RNN, PyTorch Manual)
+**Standard ReLU (Ablation)**
+| Framework | Model | K | Params | Time | Accuracy |
+|:---|:---|:---:|---:|---:|---:|
+| PyTorch | Auto | 1 | 70K | 2.42x | 0.8038 |
+| JAX | Auto | 1 | 70K | 1.52x | 0.8187 |
+| JAX | Auto | 2 | 70K | 2.07x | 0.7874 |
+| JAX | Auto | 3 | 70K | 2.43x | 0.7402 |
+
+---
+
+## Convergence & Stability Analysis
+
+
+## Convergence & Stability Analysis
+
+### Spectral Radius Tracking (Taylor Series Stability)
+To analyze the behavior of the Taylor series expansion, we track the average maximum eigenvalue (spectral radius $\rho$) of the hidden state Jacobian $J_h$ over the ODE integration steps. 
+
+As shown in the plots below, $\rho$ hovers around `1.0` and **frequently slightly exceeds 1.0** ($\rho \gtrsim 1.0$). Because the spectral radius is greater than 1, repeatedly multiplying by $J_h$ to compute higher-order Taylor terms ($K=2, 3$) causes the expansion to mathematically diverge rather than converge, which amplifies approximation errors over continuous integration. 
+
+This behavior directly explains the empirical results observed in the tables: **adding higher $K$ components actually degrades the model's test accuracy**. Thus, stopping the expansion at $K=1$ (the base $J_x \dot{X}_t$ term) remains the most robust and performant choice across all architectures.
+
+| RNN (Manual) | LSTM (Auto) | GRU (Auto) |
+|:---:|:---:|:---:|
+| <img src="outputs/radius_torch_torch_manual_rnn_surrogate_relu_k1_s43.png" width="300"> | <img src="outputs/radius_torch_torch_auto_lstm_surrogate_relu_k1_s43.png" width="300"> | <img src="outputs/radius_torch_torch_auto_gru_surrogate_relu_k1_s43.png" width="300"> |
+
+### Surrogate Gradients vs Vanishing Gradients
+Below is a comparison of training curves for the **PyTorch Manual** RNN model. The **Surrogate ReLU** maintains stable validation accuracy, whereas the standard **ReLU** suffers from gradient vanishing at higher $K$ values.
+
+*(Note: Full training curves (Loss/Accuracy) for all LSTM and GRU models are also generated and saved in the `outputs/` directory but omitted here for brevity).*
 
 | Activation | $K=1$ | $K=2$ | $K=3$ |
 |:---:|:---:|:---:|:---:|
@@ -155,8 +218,9 @@ Execute the complete benchmark suite using the provided shell script:
 CUDA_VISIBLE_DEVICES=0 ./scripts/run_all.sh
 ```
 
-Generate the final performance table once the benchmark finishes:
+Generate the final performance tables and plots once the benchmark finishes:
 
 ```bash
 python scripts/aggregate.py
+python scripts/replot.py
 ```
