@@ -119,15 +119,10 @@ Reduction from 103K to 70K parameters (~32% fewer params).
 
 ## Convergence & Stability Analysis
 
+### Spectral Radius Tracking
+To analyze the behavior of the Taylor series expansion, we track the average maximum eigenvalue (spectral radius $\rho$) of the hidden state Jacobian $J_h$ over the ODE integration steps. Due to the high computational cost of calculating full Jacobian eigenspectrums for every step, $\rho$ is estimated numerically. Specifically, we compute the mathematical expectation of $\rho$ by evaluating a representative subset of trajectories (e.g., 32 trajectories per batch, approx. 25%) with a sampling frequency of 20% across integration steps.
 
-## Convergence & Stability Analysis
-
-### Spectral Radius Tracking (Taylor Series Stability)
-To analyze the behavior of the Taylor series expansion, we track the average maximum eigenvalue (spectral radius $\rho$) of the hidden state Jacobian $J_h$ over the ODE integration steps. 
-
-As shown in the plots below, $\rho$ hovers around `1.0` and **frequently slightly exceeds 1.0** ($\rho \gtrsim 1.0$). Because the spectral radius is greater than 1, repeatedly multiplying by $J_h$ to compute higher-order Taylor terms ($K=2, 3$) causes the expansion to mathematically diverge rather than converge, which amplifies approximation errors over continuous integration. 
-
-This behavior directly explains the empirical results observed in the tables: **adding higher $K$ components actually degrades the model's test accuracy**. Thus, stopping the expansion at $K=1$ (the base $J_x \dot{X}_t$ term) remains the most robust and performant choice across all architectures.
+As shown in the plots below, the expected $\rho$ hovers around `1.0` and frequently slightly exceeds `1.0` ($\rho \gtrsim 1.0$). Because the spectral radius is greater than 1, repeatedly multiplying by $J_h$ to compute higher-order Taylor terms ($K=2, 3$) causes the expansion to mathematically diverge rather than converge, which amplifies approximation errors over continuous integration. This behavior directly explains why adding higher $K$ components actually degrades the model's test accuracy.
 
 | RNN (Manual) | LSTM (Auto) | GRU (Auto) |
 |:---:|:---:|:---:|
