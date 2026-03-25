@@ -37,60 +37,62 @@ As shown below, our Jacobian NCDE with `surrogate_relu` matches the Matrix NCDE 
 
 *(Note: Run the `scripts/aggregate.py` script after execution to populate the exact metrics and generate the `benchmark_results.csv` file).*
 
+
+
 ### 1. RNN Cell Results
 Reduction from 69K to 36K parameters (~48% fewer params).
 
 **Surrogate ReLU (Proposed Method)**
 | Framework | Model | K | Params | Time | Accuracy |
-|:---|:---|:---:|---:|---:|---:|
-| **PyTorch** | **Baseline** | **0** | **69K** | **1.00x** | **0.9476** |
-| PyTorch | Manual | 1 | 36K | 0.88x | 0.9336 |
-| PyTorch | Manual | 2 | 36K | 1.50x | 0.9196 |
-| PyTorch | Manual | 3 | 36K | 1.31x | 0.9126 |
-| **JAX** | **Baseline** | **0** | **69K** | **1.00x** | **0.9371** |
-| JAX | Manual | 1 | 36K | 1.36x | 0.9476 |
-| JAX | Manual | 2 | 36K | 1.96x | 0.9196 |
-| JAX | Manual | 3 | 36K | 2.37x | 0.8462 |
-| JAX | Auto | 1 | 36K | 1.29x | 0.9266 |
-| JAX | Auto | 2 | 36K | 1.66x | 0.9056 |
-| JAX | Auto | 3 | 36K | 2.68x | 0.9021 |
+|:---|:---|:---:|---:|---:|:---|
+| PyTorch | Manual | 1 | 36K | 0.88x | 0.9336 ± 0.0066 |
+| PyTorch | Manual | 2 | 36K | 1.50x | 0.9196 ± 0.0112 |
+| PyTorch | Manual | 3 | 36K | 1.31x | 0.9126 ± 0.0082 |
+| JAX | Manual | 1 | 36K | 1.36x | 0.9476 ± 0.0064 |
+| JAX | Manual | 2 | 36K | 1.96x | 0.9196 ± 0.0148 |
+| JAX | Manual | 3 | 36K | 2.37x | 0.8462 ± 0.0118 |
+| JAX | Auto | 1 | 36K | 1.29x | 0.9266 ± 0.0122 |
+| JAX | Auto | 2 | 36K | 1.66x | 0.9056 ± 0.0140 |
+| JAX | Auto | 3 | 36K | 2.68x | 0.9021 ± 0.0111 |
 
 **Standard ReLU (Ablation)**
 | Framework | Model | K | Params | Time | Accuracy |
-|:---|:---|:---:|---:|---:|---:|
-| PyTorch | Manual | 1 | 36K | 1.63x | 0.8427 |
-| PyTorch | Manual | 2 | 36K | 3.24x | 0.7552 |
-| PyTorch | Manual | 3 | 36K | 1.50x | 0.7028 |
-| PyTorch | Auto | 1 | 36K | 3.76x | 0.8846 |
-| JAX | Manual | 1 | 36K | 2.56x | 0.8531 |
-| JAX | Manual | 2 | 36K | 2.98x | 0.8182 |
-| JAX | Manual | 3 | 36K | 4.10x | 0.6643 |
-| JAX | Auto | 1 | 36K | 2.02x | 0.8776 |
-| JAX | Auto | 2 | 36K | 3.16x | 0.8986 |
-| JAX | Auto | 3 | 36K | 4.05x | 0.7622 |
+|:---|:---|:---:|---:|---:|:---|
+| **PyTorch** | **Baseline** | **0** | **69K** | **1.00x** | **0.9476 ± 0.0094** |
+| PyTorch | Manual | 1 | 36K | 1.63x | 0.8427 ± 0.0087 |
+| PyTorch | Manual | 2 | 36K | 3.24x | 0.7552 ± 0.0258 |
+| PyTorch | Manual | 3 | 36K | 1.50x | 0.7028 ± 0.0223 |
+| PyTorch | Auto | 1 | 36K | 3.76x | 0.8846 ± 0.0062 |
+| **JAX** | **Baseline** | **0** | **69K** | **1.00x** | **0.9371 ± 0.0080** |
+| JAX | Manual | 1 | 36K | 2.56x | 0.8531 ± 0.0086 |
+| JAX | Manual | 2 | 36K | 2.98x | 0.8182 ± 0.0161 |
+| JAX | Manual | 3 | 36K | 4.10x | 0.6643 ± 0.0304 |
+| JAX | Auto | 1 | 36K | 2.02x | 0.8776 ± 0.0062 |
+| JAX | Auto | 2 | 36K | 3.16x | 0.8986 ± 0.0173 |
+| JAX | Auto | 3 | 36K | 4.05x | 0.7622 ± 0.0178 |
 
 ---
 
 ### 2. LSTM Cell Results
-Reduction from 70K to 36K parameters (~48% fewer params). Explicit `Manual` Jacobians are omitted for gated architectures due to mathematical complexity.
+Reduction from 70K to 36K parameters (~48% fewer params).
 
 **Surrogate ReLU (Proposed Method)**
 | Framework | Model | K | Params | Time | Accuracy |
-|:---|:---|:---:|---:|---:|---:|
-| **PyTorch** | **Baseline** | **0** | **70K** | **1.00x** | **0.9349** |
-| PyTorch | Auto | 1 | 36K | 2.46x | 0.9380 |
-| **JAX** | **Baseline** | **0** | **70K** | **1.00x** | **0.9590** |
-| JAX | Auto | 1 | 36K | 1.55x | 0.9523 |
-| JAX | Auto | 2 | 36K | 1.97x | 0.9522 |
-| JAX | Auto | 3 | 36K | 2.49x | 0.9491 |
+|:---|:---|:---:|---:|---:|:---|
+| PyTorch | Auto | 1 | 36K | 2.46x | 0.9380 ± 0.0084 |
+| JAX | Auto | 1 | 36K | 1.55x | 0.9523 ± 0.0067 |
+| JAX | Auto | 2 | 36K | 1.97x | 0.9522 ± 0.0127 |
+| JAX | Auto | 3 | 36K | 2.49x | 0.9491 ± 0.0083 |
 
 **Standard ReLU (Ablation)**
 | Framework | Model | K | Params | Time | Accuracy |
-|:---|:---|:---:|---:|---:|---:|
-| PyTorch | Auto | 1 | 36K | 2.32x | 0.7818 |
-| JAX | Auto | 1 | 36K | 1.67x | 0.8288 |
-| JAX | Auto | 2 | 36K | 1.92x | 0.7663 |
-| JAX | Auto | 3 | 36K | 2.31x | 0.6971 |
+|:---|:---|:---:|---:|---:|:---|
+| **PyTorch** | **Baseline** | **0** | **70K** | **1.00x** | **0.9349 ± 0.0139** |
+| PyTorch | Auto | 1 | 36K | 2.32x | 0.7818 ± 0.0293 |
+| **JAX** | **Baseline** | **0** | **70K** | **1.00x** | **0.9590 ± 0.0061** |
+| JAX | Auto | 1 | 36K | 1.67x | 0.8288 ± 0.0115 |
+| JAX | Auto | 2 | 36K | 1.92x | 0.7663 ± 0.0214 |
+| JAX | Auto | 3 | 36K | 2.31x | 0.6971 ± 0.0227 |
 
 ---
 
@@ -99,21 +101,21 @@ Reduction from 103K to 70K parameters (~32% fewer params).
 
 **Surrogate ReLU (Proposed Method)**
 | Framework | Model | K | Params | Time | Accuracy |
-|:---|:---|:---:|---:|---:|---:|
-| **PyTorch** | **Baseline** | **0** | **103K** | **1.00x** | **0.9322** |
-| PyTorch | Auto | 1 | 70K | 2.53x | 0.9500 |
-| **JAX** | **Baseline** | **0** | **103K** | **1.00x** | **0.9536** |
-| JAX | Auto | 1 | 70K | 1.65x | 0.9678 |
-| JAX | Auto | 2 | 70K | 2.01x | 0.9510 |
-| JAX | Auto | 3 | 70K | 2.47x | 0.9569 |
+|:---|:---|:---:|---:|---:|:---|
+| PyTorch | Auto | 1 | 70K | 2.53x | 0.9500 ± 0.0066 |
+| JAX | Auto | 1 | 70K | 1.65x | 0.9678 ± 0.0175 |
+| JAX | Auto | 2 | 70K | 2.01x | 0.9510 ± 0.0106 |
+| JAX | Auto | 3 | 70K | 2.47x | 0.9569 ± 0.0109 |
 
 **Standard ReLU (Ablation)**
 | Framework | Model | K | Params | Time | Accuracy |
-|:---|:---|:---:|---:|---:|---:|
-| PyTorch | Auto | 1 | 70K | 2.42x | 0.8038 |
-| JAX | Auto | 1 | 70K | 1.52x | 0.8187 |
-| JAX | Auto | 2 | 70K | 2.07x | 0.7874 |
-| JAX | Auto | 3 | 70K | 2.43x | 0.7402 |
+|:---|:---|:---:|---:|---:|:---|
+| **PyTorch** | **Baseline** | **0** | **103K** | **1.00x** | **0.9322 ± 0.0167** |
+| PyTorch | Auto | 1 | 70K | 2.42x | 0.8038 ± 0.0173 |
+| **JAX** | **Baseline** | **0** | **103K** | **1.00x** | **0.9536 ± 0.0133** |
+| JAX | Auto | 1 | 70K | 1.52x | 0.8187 ± 0.0086 |
+| JAX | Auto | 2 | 70K | 2.07x | 0.7874 ± 0.0213 |
+| JAX | Auto | 3 | 70K | 2.43x | 0.7402 ± 0.0220 |
 
 ---
 
@@ -131,7 +133,7 @@ As shown in the plots below, the expected $\rho$ hovers around `1.0` and frequen
 ### Surrogate Gradients vs Vanishing Gradients
 Below is a comparison of training curves for the **PyTorch Manual** RNN model. The **Surrogate ReLU** maintains stable validation accuracy, whereas the standard **ReLU** suffers from gradient vanishing at higher $K$ values.
 
-*(Note: Full training curves (Loss/Accuracy) for all LSTM and GRU models are also generated and saved in the `outputs/` directory but omitted here for brevity).*
+*(The metrics below are aggregated across 5 independent runs with different random seeds. Example for seed = 43 is provided in outputs/).*
 
 | Activation | $K=1$ | $K=2$ | $K=3$ |
 |:---:|:---:|:---:|:---:|
